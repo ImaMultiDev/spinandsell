@@ -97,7 +97,21 @@ export default function ProductForm() {
         }, 1500);
       } else {
         const error = await response.json();
-        toast.error(error.message || "Error al crear producto");
+
+        // Manejo específico para límite de productos
+        if (error.limit) {
+          toast.error(
+            "🚫 Límite alcanzado: Máximo 5 productos activos por usuario",
+            { duration: 5000 }
+          );
+
+          // Redirigir a mis productos para que pueda ver/eliminar productos
+          setTimeout(() => {
+            router.push("/mis-productos");
+          }, 2000);
+        } else {
+          toast.error(error.message || "Error al crear producto");
+        }
       }
     } catch (error) {
       console.error("Error creating product:", error);

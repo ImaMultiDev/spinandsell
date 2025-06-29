@@ -64,6 +64,7 @@ export default function ProductDetailView({
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [addingToFavorites, setAddingToFavorites] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const fetchProduct = useCallback(async () => {
     try {
@@ -149,6 +150,57 @@ export default function ProductDetailView({
 
     // Redirigir a mensajes con el vendedor
     router.push(`/mensajes?user=${product?.seller.id}`);
+  };
+
+  const buyProduct = async () => {
+    if (!session) {
+      router.push("/auth/signin");
+      return;
+    }
+
+    if (!product) {
+      toast.error("Producto no encontrado");
+      return;
+    }
+
+    if (product.sold) {
+      toast.error("Este producto ya ha sido vendido");
+      return;
+    }
+
+    if (product.seller.email === session.user?.email) {
+      toast.error("No puedes comprar tu propio producto");
+      return;
+    }
+
+    setIsProcessingPayment(true);
+
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: product.id,
+        }),
+      });
+
+      if (response.ok) {
+        const { checkoutUrl } = await response.json();
+
+        // Redirigir a Stripe Checkout
+        window.location.href = checkoutUrl;
+      } else {
+        const error = await response.json();
+        toast.error(error.message || "Error al procesar el pago");
+      }
+    } catch (error) {
+      console.error("Error starting checkout:", error);
+      toast.error("Error al iniciar el proceso de pago");
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   const formatDate = (date: string | Date) => {
@@ -278,71 +330,127 @@ export default function ProductDetailView({
               </div>
 
               {/* Botones de acción */}
-              {!isOwner && (
-                <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              {!isOwner && !product.sold && (
+                <div className="space-y-4 mb-8">
+                  {/* Botón principal de compra */}
                   <Button
-                    onClick={contactSeller}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    onClick={buyProduct}
+                    disabled={isProcessingPayment}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
                     size="lg"
                   >
-                    <svg
-                      className="w-5 h-5 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      />
-                    </svg>
-                    Contactar Vendedor
+                    {isProcessingPayment ? (
+                      <>
+                        <svg
+                          className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        Procesando...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="w-5 h-5 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0H16"
+                          />
+                        </svg>
+                        Comprar Ahora - €{product.publicPrice.toLocaleString()}
+                      </>
+                    )}
                   </Button>
 
-                  <Button
-                    onClick={toggleFavorite}
-                    variant={isFavorite ? "outline" : "outline"}
-                    disabled={addingToFavorites}
-                    className={`${isFavorite ? "text-red-600 border-red-600 hover:bg-red-50" : "text-gray-600 border-gray-300 hover:bg-gray-50"}`}
-                  >
-                    <svg
-                      className={`w-5 h-5 mr-2 ${isFavorite ? "fill-current" : ""}`}
-                      fill={isFavorite ? "currentColor" : "none"}
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {/* Botones secundarios */}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <Button
+                      onClick={contactSeller}
+                      variant="outline"
+                      className="flex-1"
+                      size="lg"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                      />
-                    </svg>
-                    {isFavorite ? "En Favoritos" : "Añadir a Favoritos"}
-                  </Button>
+                      <svg
+                        className="w-5 h-5 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                        />
+                      </svg>
+                      Contactar Vendedor
+                    </Button>
+
+                    <Button
+                      onClick={toggleFavorite}
+                      variant="outline"
+                      disabled={addingToFavorites}
+                      className={`flex-1 ${isFavorite ? "text-red-600 border-red-600 hover:bg-red-50" : "text-gray-600 border-gray-300 hover:bg-gray-50"}`}
+                    >
+                      <svg
+                        className={`w-5 h-5 mr-2 ${isFavorite ? "fill-current" : ""}`}
+                        fill={isFavorite ? "currentColor" : "none"}
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        />
+                      </svg>
+                      {isFavorite ? "En Favoritos" : "Añadir a Favoritos"}
+                    </Button>
+                  </div>
                 </div>
               )}
 
-              {isOwner && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-8">
-                  <div className="flex items-center">
-                    <svg
-                      className="h-5 w-5 text-blue-400 mr-2"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                      Este es tu producto. Puedes editarlo desde &quot;Mis
-                      Productos&quot;.
-                    </span>
+              {/* Producto vendido */}
+              {!isOwner && product.sold && (
+                <div className="mb-8">
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <svg
+                        className="h-5 w-5 text-red-400 mr-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                        Este producto ya ha sido vendido
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -462,6 +570,29 @@ export default function ProductDetailView({
                   </div>
                 </div>
               </div>
+
+              {/* Propietario del producto */}
+              {isOwner && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-8">
+                  <div className="flex items-center">
+                    <svg
+                      className="h-5 w-5 text-blue-400 mr-2"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      Este es tu producto. Puedes editarlo desde &quot;Mis
+                      Productos&quot;.
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
