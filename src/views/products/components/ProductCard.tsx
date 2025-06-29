@@ -285,7 +285,7 @@ export default function ProductCard({
 
           {/* Botones de acción */}
           <div className="flex gap-2">
-            <Link href={`/productos/${product.id}`} className="flex-1">
+            <Link href={`/producto/${product.id}`} className="flex-1">
               <Button size="sm" disabled={product.sold} className="w-full">
                 {product.sold ? "Vendido" : "Ver detalles"}
               </Button>
