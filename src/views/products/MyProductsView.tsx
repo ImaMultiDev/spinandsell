@@ -6,20 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import MyProductCard from "./components/MyProductCard";
-
-interface Product {
-  id: string;
-  brand: string;
-  model: string;
-  year: number;
-  condition: string;
-  category: string;
-  publicPrice: number;
-  sold: boolean;
-  views: number;
-  likes: number;
-  createdAt: string;
-}
+import { Product } from "@/types";
 
 export default function MyProductsView() {
   const { data: session, status } = useSession();
@@ -232,36 +219,36 @@ export default function MyProductsView() {
         </div>
 
         {/* Filtros y ordenación */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-          <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             {/* Filtros */}
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setFilter("all")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   filter === "all"
-                    ? "bg-green-600 text-white"
-                    : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                 }`}
               >
                 Todos ({stats.total})
               </button>
               <button
                 onClick={() => setFilter("available")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   filter === "available"
                     ? "bg-green-600 text-white"
-                    : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                 }`}
               >
                 Disponibles ({stats.available})
               </button>
               <button
                 onClick={() => setFilter("sold")}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   filter === "sold"
-                    ? "bg-green-600 text-white"
-                    : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    ? "bg-red-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                 }`}
               >
                 Vendidos ({stats.sold})
@@ -269,70 +256,63 @@ export default function MyProductsView() {
             </div>
 
             {/* Ordenación */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 Ordenar por:
               </span>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                onChange={(e) =>
+                  setSortBy(
+                    e.target.value as
+                      | "newest"
+                      | "oldest"
+                      | "price-high"
+                      | "price-low"
+                  )
+                }
+                className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="newest">Más recientes</option>
                 <option value="oldest">Más antiguos</option>
-                <option value="price-high">Precio mayor</option>
-                <option value="price-low">Precio menor</option>
+                <option value="price-high">Precio: Mayor a menor</option>
+                <option value="price-low">Precio: Menor a mayor</option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* Lista de productos */}
+        {/* Grid de productos */}
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-6a2 2 0 00-2 2v3a2 2 0 01-2 2 2 2 0 01-2-2v-3a2 2 0 00-2-2H4"
-              />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-              {filter === "all"
-                ? "No tienes productos"
-                : `No tienes productos ${filter === "sold" ? "vendidos" : "disponibles"}`}
+            <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+              <svg
+                className="w-12 h-12 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m13-8-4 4-4-4m6 4v7"
+                />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
+              No tienes productos
             </h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-gray-500 dark:text-gray-500 mb-4">
               {filter === "all"
-                ? "Comienza publicando tu primer producto."
-                : "Cambia el filtro para ver otros productos."}
+                ? "Aún no has publicado ningún producto."
+                : `No tienes productos ${
+                    filter === "available" ? "disponibles" : "vendidos"
+                  }.`}
             </p>
-            {filter === "all" && (
-              <div className="mt-6">
-                <Button onClick={() => router.push("/vender")}>
-                  <svg
-                    className="w-5 h-5 mr-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                  </svg>
-                  Publicar primer producto
-                </Button>
-              </div>
-            )}
+            <Button onClick={() => router.push("/vender")}>
+              Publicar tu primer producto
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

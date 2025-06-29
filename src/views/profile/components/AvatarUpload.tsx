@@ -17,8 +17,8 @@ export default function AvatarUpload() {
     if (!file) return;
 
     // Validaciones
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("El archivo debe ser menor a 5MB");
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("El archivo debe ser menor a 2MB");
       return;
     }
 
@@ -223,7 +223,7 @@ export default function AvatarUpload() {
             Formatos soportados: JPG, PNG, WebP
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Tamaño máximo: 5MB
+            Tamaño máximo: 2MB • Optimización automática
           </p>
         </div>
       </div>

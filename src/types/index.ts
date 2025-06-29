@@ -8,6 +8,8 @@ export interface Product {
   condition: ProductCondition;
   category: ProductCategory;
   description: string;
+  images: string[]; // Array of Cloudinary URLs
+  imagePublicIds: string[]; // Array of Cloudinary public_ids
   purchasePrice?: number | null;
   netSalePrice?: number | null;
   distributionPrice?: number | null;

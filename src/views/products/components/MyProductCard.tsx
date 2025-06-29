@@ -3,20 +3,22 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { Product } from "@/types";
 
-interface Product {
-  id: string;
-  brand: string;
-  model: string;
-  year: number;
-  condition: string;
-  category: string;
-  publicPrice: number;
-  sold: boolean;
-  views: number;
-  likes: number;
-  createdAt: string;
-}
+// Labels para categorías y condiciones
+const categoryLabels = {
+  ROAD_BIKE: "Bicicleta de Carretera",
+  MOUNTAIN_BIKE: "Bicicleta de Montaña",
+  ELECTRIC_BIKE: "Bicicleta Eléctrica",
+  SPINNING_BIKE: "Bicicleta de Spinning",
+  ELECTRIC_SCOOTER: "Patinete Eléctrico",
+};
+
+const conditionLabels = {
+  A: "Como Nuevo",
+  B: "Buen Estado",
+  C: "Estado Aceptable",
+};
 
 interface MyProductCardProps {
   product: Product;
@@ -31,30 +33,23 @@ export default function MyProductCard({
   onDelete,
   onToggleStatus,
 }: MyProductCardProps) {
-  const conditionLabels = {
-    A: "Excelente",
-    B: "Bueno",
-    C: "Aceptable",
-  };
-
-  const categoryLabels = {
-    ROAD_BIKE: "Bicicleta de Carretera",
-    MOUNTAIN_BIKE: "Bicicleta de Montaña",
-    SPINNING_BIKE: "Bicicleta de Spinning",
-    ELECTRIC_BIKE: "Bicicleta Eléctrica",
-    ELECTRIC_SCOOTER: "Patinete Eléctrico",
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow duration-200">
       {/* Imagen del producto */}
       <div className="relative aspect-video bg-gray-200 dark:bg-gray-700 rounded-t-lg overflow-hidden">
         <Image
-          src="/placeholder-product.jpg"
+          src={product.images?.[0] || "/placeholder-product.jpg"}
           alt={`${product.brand} ${product.model}`}
           fill
           className="object-cover"
         />
+
+        {/* Indicador de múltiples imágenes */}
+        {product.images && product.images.length > 1 && (
+          <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs">
+            📷 {product.images.length}
+          </div>
+        )}
 
         {/* Estado del producto */}
         <div className="absolute top-2 left-2">

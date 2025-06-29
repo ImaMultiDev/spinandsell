@@ -24,18 +24,19 @@ enum ProductCategory {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  password      String?
-  image         String?
-  phone         String?
-  bio           String?
-  location      String?
-  role          String    @default("USER")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  password        String?
+  image           String?
+  avatarPublicId  String?   // Cloudinary public_id for avatar
+  phone           String?
+  bio             String?
+  location        String?
+  role            String    @default("USER")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   
   // Relationships
   soldProducts         Product[] @relation("Seller")
@@ -58,6 +59,8 @@ model Product {
   condition         ProductCondition
   category          ProductCategory
   description       String
+  images            String[]        // Array of Cloudinary URLs
+  imagePublicIds    String[]        // Array of Cloudinary public_ids
   purchasePrice     Float?          // PC - Admin only
   netSalePrice      Float?          // PV - Admin only
   distributionPrice Float?          // PD - Admin only

@@ -1,242 +1,230 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "react-hot-toast";
 import { Product, ProductFilter } from "@/types";
 import ProductFilters from "./components/ProductFilters";
 import ProductSorting from "./components/ProductSorting";
 import ProductGrid from "./components/ProductGrid";
 
-// Mock data - esto se reemplazará con la API de Strapi
-const mockProducts: Product[] = [
-  {
-    id: "1",
-    brand: "Trek",
-    model: "Domane SL 5",
-    year: 2022,
-    condition: "A",
-    category: "ROAD_BIKE",
-    description:
-      "Bicicleta de carretera de carbono en excelente estado. Perfecta para largas distancias y competición.",
-    publicPrice: 2500,
-    discount: 10,
-    sold: false,
-    paid: false,
-    views: 145,
-    likes: 23,
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-20"),
-  },
-  {
-    id: "2",
-    brand: "Giant",
-    model: "Trance X 29",
-    year: 2023,
-    condition: "B",
-    category: "MOUNTAIN_BIKE",
-    description:
-      "Mountain bike de doble suspensión. Ideal para trails y senderos técnicos.",
-    publicPrice: 1800,
-    sold: false,
-    paid: false,
-    views: 98,
-    likes: 15,
-    createdAt: new Date("2024-01-10"),
-    updatedAt: new Date("2024-01-18"),
-  },
-  {
-    id: "3",
-    brand: "Specialized",
-    model: "Turbo Vado SL",
-    year: 2023,
-    condition: "A",
-    category: "ELECTRIC_BIKE",
-    description:
-      "Bicicleta eléctrica ultraligera con motor SL 1.1 y batería integrada.",
-    publicPrice: 3200,
-    discount: 15,
-    sold: true,
-    paid: true,
-    views: 203,
-    likes: 45,
-    createdAt: new Date("2024-01-05"),
-    updatedAt: new Date("2024-01-15"),
-  },
-  {
-    id: "4",
-    brand: "Xiaomi",
-    model: "Mi Electric Scooter Pro 2",
-    year: 2022,
-    condition: "B",
-    category: "ELECTRIC_SCOOTER",
-    description:
-      "Patinete eléctrico con autonomía de 45km y velocidad máxima de 25km/h.",
-    publicPrice: 450,
-    sold: false,
-    paid: false,
-    views: 76,
-    likes: 8,
-    createdAt: new Date("2024-01-12"),
-    updatedAt: new Date("2024-01-19"),
-  },
-];
+interface ProductsResponse {
+  products: Product[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+    hasMore: boolean;
+  };
+}
 
 export default function ProductsView() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [filters, setFilters] = useState<ProductFilter>({});
   const [sortBy, setSortBy] = useState("newest");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalProducts, setTotalProducts] = useState(0);
 
-  // Simulación de carga de datos
+  // Cargar productos desde la API
+  const loadProducts = useCallback(
+    async (reset = false) => {
+      try {
+        setLoading(true);
+
+        const params = new URLSearchParams();
+
+        // Añadir filtros
+        if (filters.category) params.set("category", filters.category);
+        if (filters.condition) params.set("condition", filters.condition);
+        if (filters.brand) params.set("brand", filters.brand);
+        if (filters.minPrice)
+          params.set("minPrice", filters.minPrice.toString());
+        if (filters.maxPrice)
+          params.set("maxPrice", filters.maxPrice.toString());
+        if (filters.search) params.set("search", filters.search);
+
+        // Añadir ordenación y paginación
+        params.set("sortBy", sortBy);
+        params.set("page", reset ? "1" : page.toString());
+        params.set("limit", "12");
+
+        const response = await fetch(`/api/products?${params.toString()}`);
+
+        if (!response.ok) {
+          throw new Error("Error al cargar productos");
+        }
+
+        const data: ProductsResponse = await response.json();
+
+        if (reset || page === 1) {
+          setProducts(data.products);
+        } else {
+          setProducts((prev) => [...prev, ...data.products]);
+        }
+
+        setHasMore(data.pagination.hasMore);
+        setTotalProducts(data.pagination.total);
+
+        if (reset) {
+          setPage(1);
+        }
+      } catch (error) {
+        console.error("Error loading products:", error);
+        toast.error("Error al cargar productos");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filters, sortBy, page]
+  );
+
+  // Cargar productos iniciales
   useEffect(() => {
-    // Aquí se haría la llamada a la API de Strapi
-    setTimeout(() => {
-      setProducts(mockProducts);
-      setFilteredProducts(mockProducts);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    loadProducts(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, sortBy]); // Removido loadProducts de dependencias para evitar loop
 
-  // Aplicar filtros y ordenación combinados
-  useEffect(() => {
-    let filtered = [...products];
-
-    // Aplicar filtros
-    if (filters.search) {
-      const searchTerm = filters.search.toLowerCase();
-      filtered = filtered.filter(
-        (product) =>
-          product.brand.toLowerCase().includes(searchTerm) ||
-          product.model.toLowerCase().includes(searchTerm) ||
-          product.description.toLowerCase().includes(searchTerm)
-      );
-    }
-
-    if (filters.category) {
-      filtered = filtered.filter(
-        (product) => product.category === filters.category
-      );
-    }
-
-    if (filters.condition) {
-      filtered = filtered.filter(
-        (product) => product.condition === filters.condition
-      );
-    }
-
-    if (filters.brand) {
-      const brandTerm = filters.brand.toLowerCase();
-      filtered = filtered.filter((product) =>
-        product.brand.toLowerCase().includes(brandTerm)
-      );
-    }
-
-    if (filters.minPrice) {
-      filtered = filtered.filter((product) => {
-        const price = product.discount
-          ? product.publicPrice - (product.publicPrice * product.discount) / 100
-          : product.publicPrice;
-        return price >= filters.minPrice!;
-      });
-    }
-
-    if (filters.maxPrice) {
-      filtered = filtered.filter((product) => {
-        const price = product.discount
-          ? product.publicPrice - (product.publicPrice * product.discount) / 100
-          : product.publicPrice;
-        return price <= filters.maxPrice!;
-      });
-    }
-
-    // Aplicar ordenación
-    const sorted = [...filtered];
-    switch (sortBy) {
-      case "newest":
-        sorted.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        break;
-      case "oldest":
-        sorted.sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-        break;
-      case "price-asc":
-        sorted.sort((a, b) => {
-          const priceA = a.discount
-            ? a.publicPrice - (a.publicPrice * a.discount) / 100
-            : a.publicPrice;
-          const priceB = b.discount
-            ? b.publicPrice - (b.publicPrice * b.discount) / 100
-            : b.publicPrice;
-          return priceA - priceB;
-        });
-        break;
-      case "price-desc":
-        sorted.sort((a, b) => {
-          const priceA = a.discount
-            ? a.publicPrice - (a.publicPrice * a.discount) / 100
-            : a.publicPrice;
-          const priceB = b.discount
-            ? b.publicPrice - (b.publicPrice * b.discount) / 100
-            : b.publicPrice;
-          return priceB - priceA;
-        });
-        break;
-      case "popular":
-        sorted.sort((a, b) => b.likes - a.likes);
-        break;
-      case "views":
-        sorted.sort((a, b) => b.views - a.views);
-        break;
-    }
-
-    setFilteredProducts(sorted);
-  }, [products, filters, sortBy]);
-
+  // Manejar cambio de filtros
   const handleFiltersChange = (newFilters: ProductFilter) => {
     setFilters(newFilters);
   };
 
+  // Limpiar filtros
   const handleClearFilters = () => {
     setFilters({});
   };
 
+  // Manejar cambio de ordenación
+  const handleSortChange = (newSortBy: string) => {
+    setSortBy(newSortBy);
+  };
+
+  // Cargar más productos
+  const loadMore = async () => {
+    if (hasMore && !loading) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+
+      try {
+        setLoading(true);
+
+        const params = new URLSearchParams();
+
+        // Añadir filtros
+        if (filters.category) params.set("category", filters.category);
+        if (filters.condition) params.set("condition", filters.condition);
+        if (filters.brand) params.set("brand", filters.brand);
+        if (filters.minPrice)
+          params.set("minPrice", filters.minPrice.toString());
+        if (filters.maxPrice)
+          params.set("maxPrice", filters.maxPrice.toString());
+        if (filters.search) params.set("search", filters.search);
+
+        // Añadir ordenación y paginación
+        params.set("sortBy", sortBy);
+        params.set("page", nextPage.toString());
+        params.set("limit", "12");
+
+        const response = await fetch(`/api/products?${params.toString()}`);
+
+        if (!response.ok) {
+          throw new Error("Error al cargar más productos");
+        }
+
+        const data: ProductsResponse = await response.json();
+
+        setProducts((prev) => [...prev, ...data.products]);
+        setHasMore(data.pagination.hasMore);
+      } catch (error) {
+        console.error("Error loading more products:", error);
+        toast.error("Error al cargar más productos");
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Productos</h1>
-        <p className="text-gray-600">
-          Descubre nuestra selección de bicicletas y patinetes de segunda mano
-        </p>
-      </div>
-
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Sidebar con filtros */}
-        <div className="lg:w-80 flex-shrink-0">
-          <ProductFilters
-            filters={filters}
-            onFiltersChange={handleFiltersChange}
-            onClearFilters={handleClearFilters}
-          />
-        </div>
+        {/* Filtros */}
+        <aside className="lg:w-64 flex-shrink-0">
+          <div className="sticky top-4">
+            <ProductFilters
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
+              onClearFilters={handleClearFilters}
+            />
+          </div>
+        </aside>
 
         {/* Contenido principal */}
-        <div className="flex-1">
-          {/* Ordenación */}
-          <ProductSorting
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            totalProducts={filteredProducts.length}
-          />
+        <main className="flex-1">
+          {/* Header con ordenación */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Productos
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                {loading
+                  ? "Cargando..."
+                  : `${totalProducts} productos encontrados`}
+              </p>
+            </div>
+
+            <ProductSorting
+              sortBy={sortBy}
+              onSortChange={handleSortChange}
+              totalProducts={totalProducts}
+            />
+          </div>
 
           {/* Grid de productos */}
-          <ProductGrid products={filteredProducts} loading={loading} />
-        </div>
+          <ProductGrid products={products} loading={loading} />
+
+          {/* Botón cargar más */}
+          {!loading && hasMore && products.length > 0 && (
+            <div className="text-center mt-8">
+              <button
+                onClick={loadMore}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              >
+                Cargar más productos
+              </button>
+            </div>
+          )}
+
+          {/* Mensaje si no hay productos */}
+          {!loading && products.length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-gray-400 dark:text-gray-500 mb-4">
+                <svg
+                  className="mx-auto h-12 w-12"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m13-8-4 4-4-4m6 4v7"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                No hay productos
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400">
+                No se encontraron productos que coincidan con los filtros
+                seleccionados.
+              </p>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

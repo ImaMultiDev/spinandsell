@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { writeFile, unlink } from "fs/promises";
-import { join } from "path";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/libs/prisma";
+import { uploadImage, deleteImage } from "@/lib/cloudinary";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,9 +23,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validaciones
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > 2 * 1024 * 1024) {
       return NextResponse.json(
-        { message: "El archivo debe ser menor a 5MB" },
+        { message: "El archivo debe ser menor a 2MB" },
         { status: 400 }
       );
     }
@@ -41,7 +40,7 @@ export async function POST(request: NextRequest) {
     // Obtener usuario actual
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { id: true, image: true },
+      select: { id: true, image: true, avatarPublicId: true },
     });
 
     if (!user) {
@@ -51,51 +50,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generar nombre único para el archivo
+    // Convertir archivo a base64 para Cloudinary
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const timestamp = Date.now();
-    const extension = file.name.split(".").pop();
-    const filename = `avatar-${user.id}-${timestamp}.${extension}`;
+    const base64String = `data:${file.type};base64,${buffer.toString("base64")}`;
 
-    // Crear directorio si no existe
-    const uploadsDir = join(process.cwd(), "public", "uploads", "avatars");
-
-    try {
-      const fs = await import("fs");
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      }
-    } catch {
-      // Si falla la creación del directorio, continuar
-    }
-
-    // Guardar archivo
-    const filepath = join(uploadsDir, filename);
-    await writeFile(filepath, buffer);
-
-    // Eliminar avatar anterior si existe
-    if (user.image && user.image.includes("/uploads/avatars/")) {
+    // Eliminar avatar anterior de Cloudinary si existe
+    if (user.avatarPublicId) {
       try {
-        const oldFilename = user.image.split("/").pop();
-        if (oldFilename) {
-          const oldFilepath = join(uploadsDir, oldFilename);
-          await unlink(oldFilepath);
-        }
-      } catch {
-        // Si falla la eliminación, continuar
+        await deleteImage(user.avatarPublicId);
+      } catch (error) {
+        console.error("Error deleting old avatar:", error);
+        // Continuar aunque falle la eliminación
       }
     }
+
+    // Subir nueva imagen a Cloudinary
+    const publicId = `user-${user.id}-${Date.now()}`;
+    const cloudinaryResult = await uploadImage(
+      base64String,
+      "avatar",
+      publicId
+    );
 
     // Actualizar usuario con nueva imagen
-    const imageUrl = `/uploads/avatars/${filename}`;
     await prisma.user.update({
       where: { email: session.user.email },
-      data: { image: imageUrl },
+      data: {
+        image: cloudinaryResult.secure_url,
+        avatarPublicId: cloudinaryResult.public_id,
+      },
     });
 
     return NextResponse.json({
-      imageUrl,
+      imageUrl: cloudinaryResult.secure_url,
       message: "Avatar actualizado exitosamente",
     });
   } catch (error) {
@@ -119,7 +107,7 @@ export async function DELETE() {
     // Obtener usuario actual
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { image: true },
+      select: { avatarPublicId: true },
     });
 
     if (!user) {
@@ -129,29 +117,23 @@ export async function DELETE() {
       );
     }
 
-    // Eliminar archivo si existe
-    if (user.image && user.image.includes("/uploads/avatars/")) {
+    // Eliminar imagen de Cloudinary si existe
+    if (user.avatarPublicId) {
       try {
-        const filename = user.image.split("/").pop();
-        if (filename) {
-          const filepath = join(
-            process.cwd(),
-            "public",
-            "uploads",
-            "avatars",
-            filename
-          );
-          await unlink(filepath);
-        }
-      } catch {
-        // Si falla la eliminación, continuar
+        await deleteImage(user.avatarPublicId);
+      } catch (error) {
+        console.error("Error deleting avatar from Cloudinary:", error);
+        // Continuar aunque falle la eliminación
       }
     }
 
     // Actualizar usuario sin imagen
     await prisma.user.update({
       where: { email: session.user.email },
-      data: { image: null },
+      data: {
+        image: null,
+        avatarPublicId: null,
+      },
     });
 
     return NextResponse.json({

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { Product } from "@/types";
 import { Button } from "@/components/ui/Button";
@@ -20,7 +21,9 @@ export default function ProductCard({
   isFavorite = false,
 }: ProductCardProps) {
   const { data: session } = useSession();
+  const router = useRouter();
   const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
+  const [isLoadingContact, setIsLoadingContact] = useState(false);
 
   const discountedPrice = product.discount
     ? product.publicPrice - (product.publicPrice * product.discount) / 100
@@ -74,16 +77,79 @@ export default function ProductCard({
     }
   };
 
+  const handleContactSeller = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!session) {
+      toast.error("Debes iniciar sesión para contactar al vendedor");
+      return;
+    }
+
+    if (!product.sellerId) {
+      toast.error("No se puede contactar al vendedor");
+      return;
+    }
+
+    // Verificar que no sea el propio producto
+    const userEmail = session.user?.email;
+    if (product.sellerId === userEmail) {
+      toast.error("No puedes contactarte a ti mismo");
+      return;
+    }
+
+    setIsLoadingContact(true);
+
+    try {
+      // Crear o obtener conversación existente
+      const response = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          otherUserId: product.sellerId,
+          productId: product.id,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Redirigir a mensajes
+        router.push("/mensajes");
+
+        if (data.conversationId) {
+          toast.success("Redirigiendo a conversación existente");
+        } else {
+          toast.success("Conversación iniciada");
+        }
+      } else {
+        const error = await response.json();
+        toast.error(error.message || "Error al contactar vendedor");
+      }
+    } catch {
+      toast.error("Error al contactar vendedor");
+    } finally {
+      setIsLoadingContact(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg border hover:shadow-lg transition-shadow overflow-hidden group">
       {/* Imagen del producto */}
       <div className="relative h-48 bg-gray-200 overflow-hidden">
         <Image
-          src="/placeholder-product.jpg"
+          src={product.images?.[0] || "/placeholder-product.jpg"}
           alt={`${product.brand} ${product.model}`}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-300"
         />
+
+        {/* Indicador de múltiples imágenes */}
+        {product.images && product.images.length > 1 && (
+          <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs">
+            +{product.images.length - 1} más
+          </div>
+        )}
 
         {/* Badge de estado */}
         <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-sm font-medium">
@@ -198,7 +264,8 @@ export default function ProductCard({
         </div>
 
         {/* Precio y acciones */}
-        <div className="flex justify-between items-center">
+        <div className="space-y-3">
+          {/* Precio */}
           <div className="flex flex-col">
             {product.discount ? (
               <>
@@ -216,11 +283,51 @@ export default function ProductCard({
             )}
           </div>
 
-          <Link href={`/productos/${product.id}`}>
-            <Button size="sm" disabled={product.sold}>
-              {product.sold ? "Vendido" : "Ver detalles"}
-            </Button>
-          </Link>
+          {/* Botones de acción */}
+          <div className="flex gap-2">
+            <Link href={`/productos/${product.id}`} className="flex-1">
+              <Button size="sm" disabled={product.sold} className="w-full">
+                {product.sold ? "Vendido" : "Ver detalles"}
+              </Button>
+            </Link>
+
+            {session &&
+              !product.sold &&
+              product.sellerId &&
+              product.sellerId !== session.user?.email && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleContactSeller}
+                  disabled={isLoadingContact}
+                  className="flex-1"
+                >
+                  {isLoadingContact ? (
+                    <>
+                      <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin mr-1"></div>
+                      Contactando...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="w-3 h-3 mr-1"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                        />
+                      </svg>
+                      Contactar
+                    </>
+                  )}
+                </Button>
+              )}
+          </div>
         </div>
       </div>
     </div>
