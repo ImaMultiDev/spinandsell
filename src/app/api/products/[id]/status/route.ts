@@ -5,7 +5,7 @@ import { prisma } from "@/libs/prisma";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +14,7 @@ export async function PUT(
       return NextResponse.json({ message: "No autorizado" }, { status: 401 });
     }
 
-    const productId = params.id;
+    const { id: productId } = await params;
     const { sold } = await request.json();
 
     if (typeof sold !== "boolean") {

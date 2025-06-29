@@ -5,7 +5,7 @@ import { prisma } from "@/libs/prisma";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +14,7 @@ export async function DELETE(
       return NextResponse.json({ message: "No autorizado" }, { status: 401 });
     }
 
-    const productId = params.productId;
+    const { productId } = await params;
 
     // Obtener usuario
     const user = await prisma.user.findUnique({

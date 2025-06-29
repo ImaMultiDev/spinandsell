@@ -5,7 +5,7 @@ import { prisma } from "@/libs/prisma";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +14,7 @@ export async function DELETE(
       return NextResponse.json({ message: "No autorizado" }, { status: 401 });
     }
 
-    const productId = params.id;
+    const { id: productId } = await params;
 
     // Verificar que el producto existe y pertenece al usuario
     const product = await prisma.product.findUnique({
@@ -56,10 +56,10 @@ export async function DELETE(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const productId = params.id;
+    const { id: productId } = await params;
 
     // Obtener producto con detalles
     const product = await prisma.product.findUnique({
