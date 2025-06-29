@@ -24,17 +24,10 @@ export const passwordSchema = z
     path: ["confirmPassword"],
   });
 
+// Validación de avatar movida directamente a los componentes cliente
+// para evitar problemas con File en el build de servidor
 export const avatarSchema = z.object({
-  file: z
-    .instanceof(File)
-    .refine(
-      (file) => file.size <= 5 * 1024 * 1024,
-      "El archivo debe ser menor a 5MB"
-    )
-    .refine(
-      (file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type),
-      "Solo se permiten archivos JPG, PNG o WebP"
-    ),
+  file: z.any(), // Validación manual en el componente/API
 });
 
 export type ProfileFormData = z.infer<typeof profileSchema>;
