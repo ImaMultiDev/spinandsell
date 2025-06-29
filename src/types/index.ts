@@ -66,3 +66,42 @@ export const PRODUCT_CONDITIONS = {
   B: "Estado B - Bueno",
   C: "Estado C - Aceptable",
 } as const;
+
+// Messaging Types
+export interface MessageUser {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+}
+
+export interface MessageProduct {
+  id: string;
+  brand: string;
+  model: string;
+  publicPrice: number;
+  sold: boolean;
+}
+
+export interface Message {
+  id: string;
+  content: string;
+  senderId: string;
+  readAt: Date | null;
+  createdAt: Date;
+  sender: MessageUser;
+}
+
+export interface Conversation {
+  id: string;
+  otherParticipant: MessageUser;
+  product: MessageProduct | null;
+  lastMessage: Message | null;
+  lastMessageAt: Date | null;
+  createdAt: Date;
+}
+
+export interface ConversationWithMessages
+  extends Omit<Conversation, "lastMessage"> {
+  messages: Message[];
+}
