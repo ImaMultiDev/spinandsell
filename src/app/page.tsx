@@ -205,7 +205,9 @@ export default function Home() {
                     <span className="text-2xl font-bold text-green-600">
                       €899
                     </span>
-                    <Button size="sm">Ver detalles</Button>
+                    <Link href="/productos">
+                      <Button size="sm">Ver detalles</Button>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -213,9 +215,11 @@ export default function Home() {
           </div>
 
           <div className="text-center mt-8">
-            <Button size="lg" variant="outline">
-              Ver todos los productos
-            </Button>
+            <Link href="/productos">
+              <Button size="lg" variant="outline">
+                Ver todos los productos
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -231,12 +235,14 @@ export default function Home() {
               Únete a miles de vendedores que confían en SpinAndSell para vender
               sus productos
             </p>
-            <Button
-              size="lg"
-              className="bg-white text-green-600 hover:bg-gray-100"
-            >
-              Publicar Producto Gratis
-            </Button>
+            <Link href="/vender">
+              <Button
+                size="lg"
+                className="bg-white text-green-600 hover:bg-gray-100"
+              >
+                Publicar Producto Gratis
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
