@@ -1,5 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { toast } from "react-hot-toast";
 import { Product } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { formatPrice } from "@/libs/utils";
@@ -7,12 +10,69 @@ import { PRODUCT_CONDITIONS } from "@/types";
 
 interface ProductCardProps {
   product: Product;
+  onToggleFavorite?: (productId: string) => void;
+  isFavorite?: boolean;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  onToggleFavorite,
+  isFavorite = false,
+}: ProductCardProps) {
+  const { data: session } = useSession();
+  const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
+
   const discountedPrice = product.discount
     ? product.publicPrice - (product.publicPrice * product.discount) / 100
     : product.publicPrice;
+
+  const handleToggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!session) {
+      toast.error("Debes iniciar sesión para guardar favoritos");
+      return;
+    }
+
+    setIsLoadingFavorite(true);
+
+    try {
+      if (onToggleFavorite) {
+        // Si se proporciona una función personalizada, usarla
+        onToggleFavorite(product.id);
+      } else {
+        // Lógica por defecto para agregar/quitar favoritos
+        if (isFavorite) {
+          const response = await fetch(`/api/favorites/${product.id}`, {
+            method: "DELETE",
+          });
+
+          if (response.ok) {
+            toast.success("Eliminado de favoritos");
+          } else {
+            toast.error("Error al eliminar favorito");
+          }
+        } else {
+          const response = await fetch("/api/favorites", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productId: product.id }),
+          });
+
+          if (response.ok) {
+            toast.success("Agregado a favoritos");
+          } else {
+            toast.error("Error al agregar favorito");
+          }
+        }
+      }
+    } catch {
+      toast.error("Error al procesar favorito");
+    } finally {
+      setIsLoadingFavorite(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg border hover:shadow-lg transition-shadow overflow-hidden group">
@@ -32,9 +92,40 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         {/* Badge de descuento */}
         {product.discount && (
-          <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-sm font-medium">
+          <div
+            className={`absolute top-2 bg-red-500 text-white px-2 py-1 rounded text-sm font-medium ${
+              session ? "left-12" : "left-2"
+            }`}
+          >
             -{product.discount}%
           </div>
+        )}
+
+        {/* Botón de favoritos */}
+        {session && (
+          <button
+            onClick={handleToggleFavorite}
+            disabled={isLoadingFavorite}
+            className={`absolute top-2 left-2 p-2 rounded-full transition-colors ${
+              isFavorite
+                ? "bg-pink-500 text-white hover:bg-pink-600"
+                : "bg-white text-gray-400 hover:text-pink-500 hover:bg-pink-50"
+            } ${isLoadingFavorite ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            <svg
+              className="w-4 h-4"
+              fill={isFavorite ? "currentColor" : "none"}
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+              />
+            </svg>
+          </button>
         )}
 
         {/* Badge de vendido */}
