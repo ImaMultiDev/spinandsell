@@ -14,6 +14,9 @@ export async function POST(request: NextRequest) {
 
     const { productId } = await request.json();
 
+    console.log("🔍 DEBUG - productId recibido:", productId);
+    console.log("🔍 DEBUG - tipo de productId:", typeof productId);
+
     if (!productId) {
       return NextResponse.json(
         { message: "ID del producto requerido" },
@@ -22,6 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Obtener producto y vendedor
+    console.log("🔍 DEBUG - Buscando producto con ID:", productId);
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
@@ -34,6 +38,9 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    console.log("🔍 DEBUG - Producto encontrado:", product ? "SÍ" : "NO");
+    console.log("🔍 DEBUG - Producto completo:", JSON.stringify(product));
 
     if (!product) {
       return NextResponse.json(
