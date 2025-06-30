@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export default function Footer() {
@@ -8,7 +9,6 @@ export default function Footer() {
           {/* Company Info */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-full bg-primary"></div>
               <span className="text-xl font-bold">SpinAndSell</span>
             </div>
             <p className="text-sm text-gray-600">
@@ -16,6 +16,14 @@ export default function Footer() {
               mano. Encuentra las mejores ofertas y vende tus productos
               fácilmente.
             </p>
+            <div className="float bottom-10 mx-auto -translate-x-1/2 z-50 h-20 w-20 rounded-full bg-primary">
+              <Image
+                src="/logo_512x512.png"
+                alt="SpinAndSell"
+                width={80}
+                height={80}
+              />
+            </div>
           </div>
 
           {/* Categories */}

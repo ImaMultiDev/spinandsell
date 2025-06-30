@@ -32,7 +32,14 @@ export default function Header() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-full bg-primary"></div>
+            <div className="items-center justify-center h-12 w-12 rounded-full bg-primary">
+              <Image
+                src="/logo_512x512.png"
+                alt="SpinAndSell"
+                width={48}
+                height={32}
+              />
+            </div>
             <span className="text-xl font-bold">SpinAndSell</span>
           </Link>
 

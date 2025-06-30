@@ -54,16 +54,15 @@ export default function AvatarUpload() {
       });
 
       if (response.ok) {
-        const { imageUrl } = await response.json();
+        await response.json();
 
-        // Actualizar sesión con nueva imagen
-        await update({ image: imageUrl });
+        // Actualizar sesión con nueva imagen (forzar refresh completo)
+        await update();
+
+        // Recargar la página para asegurar que se actualice el avatar en todos lados
+        window.location.reload();
 
         toast.success("Avatar actualizado exitosamente");
-        setPreviewUrl(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
       } else {
         const error = await response.json();
         toast.error(error.message || "Error al subir avatar");

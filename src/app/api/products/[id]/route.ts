@@ -60,6 +60,11 @@ export async function GET(
 ) {
   try {
     const { id: productId } = await params;
+    const session = await getServerSession(authOptions);
+    const clientIP =
+      request.headers.get("x-forwarded-for") ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
 
     // Obtener producto con detalles
     const product = await prisma.product.findUnique({
@@ -86,11 +91,68 @@ export async function GET(
       );
     }
 
-    // Incrementar contador de visualizaciones
-    await prisma.product.update({
-      where: { id: productId },
-      data: { views: { increment: 1 } },
-    });
+    // Lógica de visualizaciones mejorada - solo una vez por usuario/IP
+    let shouldIncrementViews = false;
+
+    if (session?.user?.email) {
+      // Usuario autenticado
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true },
+      });
+
+      if (user) {
+        // Verificar si ya ha visto este producto
+        const existingView = await prisma.view.findUnique({
+          where: {
+            userId_productId: {
+              userId: user.id,
+              productId: productId,
+            },
+          },
+        });
+
+        if (!existingView) {
+          // Primera vez que ve este producto
+          await prisma.view.create({
+            data: {
+              userId: user.id,
+              productId: productId,
+            },
+          });
+          shouldIncrementViews = true;
+        }
+      }
+    } else {
+      // Usuario anónimo - usar IP
+      const existingView = await prisma.view.findUnique({
+        where: {
+          ipAddress_productId: {
+            ipAddress: clientIP,
+            productId: productId,
+          },
+        },
+      });
+
+      if (!existingView) {
+        // Primera vez que esta IP ve este producto
+        await prisma.view.create({
+          data: {
+            ipAddress: clientIP,
+            productId: productId,
+          },
+        });
+        shouldIncrementViews = true;
+      }
+    }
+
+    // Incrementar contador solo si es una nueva visualización
+    if (shouldIncrementViews) {
+      await prisma.product.update({
+        where: { id: productId },
+        data: { views: { increment: 1 } },
+      });
+    }
 
     return NextResponse.json(product);
   } catch (error) {
