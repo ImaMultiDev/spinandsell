@@ -54,13 +54,22 @@ export default function AvatarUpload() {
       });
 
       if (response.ok) {
-        await response.json();
+        const { imageUrl } = await response.json();
 
-        // Actualizar sesión con nueva imagen (forzar refresh completo)
-        await update();
+        // Actualizar sesión con nueva imagen específica
+        await update({
+          ...session,
+          user: {
+            ...session?.user,
+            image: imageUrl,
+          },
+        });
 
-        // Recargar la página para asegurar que se actualice el avatar en todos lados
-        window.location.reload();
+        // Limpiar formulario
+        setPreviewUrl(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
 
         toast.success("Avatar actualizado exitosamente");
       } else {
@@ -84,7 +93,13 @@ export default function AvatarUpload() {
 
       if (response.ok) {
         // Actualizar sesión sin imagen
-        await update({ image: null });
+        await update({
+          ...session,
+          user: {
+            ...session?.user,
+            image: null,
+          },
+        });
         toast.success("Avatar eliminado exitosamente");
       } else {
         const error = await response.json();

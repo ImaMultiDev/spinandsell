@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import ImageGallery from "@/views/products/components/ImageGallery";
 import { Product } from "@/types";
+import { useFavorites } from "@/hooks/useFavorites";
 
 interface ProductDetailViewProps {
   productId: string;
@@ -23,10 +24,6 @@ interface ProductWithSeller extends Product {
     location: string | null;
     createdAt: Date;
   };
-}
-
-interface FavoriteItem {
-  productId: string;
 }
 
 const categoryLabels = {
@@ -62,9 +59,10 @@ export default function ProductDetailView({
   const router = useRouter();
   const [product, setProduct] = useState<ProductWithSeller | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [addingToFavorites, setAddingToFavorites] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const { isFavorite: hookIsFavorite, toggleFavorite: hookToggleFavorite } =
+    useFavorites();
 
   const fetchProduct = useCallback(async () => {
     try {
@@ -87,27 +85,9 @@ export default function ProductDetailView({
     }
   }, [productId, router]);
 
-  const checkFavoriteStatus = useCallback(async () => {
-    try {
-      const response = await fetch("/api/favorites");
-      if (response.ok) {
-        const favorites: FavoriteItem[] = await response.json();
-        setIsFavorite(favorites.some((fav) => fav.productId === productId));
-      }
-    } catch (error) {
-      console.error("Error checking favorite status:", error);
-    }
-  }, [productId]);
-
   useEffect(() => {
-    const loadData = async () => {
-      await fetchProduct();
-      if (session) {
-        await checkFavoriteStatus();
-      }
-    };
-    loadData();
-  }, [fetchProduct, checkFavoriteStatus, session]);
+    fetchProduct();
+  }, [fetchProduct]);
 
   const toggleFavorite = async () => {
     if (!session) {
@@ -117,17 +97,15 @@ export default function ProductDetailView({
 
     setAddingToFavorites(true);
     try {
-      const response = await fetch(`/api/favorites/${productId}`, {
-        method: isFavorite ? "DELETE" : "POST",
-      });
-
-      if (response.ok) {
-        setIsFavorite(!isFavorite);
+      const success = await hookToggleFavorite(productId);
+      if (success) {
         toast.success(
-          isFavorite ? "Eliminado de favoritos" : "Añadido a favoritos"
+          hookIsFavorite(productId)
+            ? "Eliminado de favoritos"
+            : "Añadido a favoritos"
         );
       } else {
-        throw new Error("Error al actualizar favoritos");
+        toast.error("Error al actualizar favoritos");
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
@@ -187,24 +165,23 @@ export default function ProductDetailView({
       });
 
       if (response.ok) {
-        const { checkoutUrl } = await response.json();
-
-        // Redirigir a Stripe Checkout
-        window.location.href = checkoutUrl;
+        const { url } = await response.json();
+        window.location.href = url;
       } else {
         const error = await response.json();
         toast.error(error.message || "Error al procesar el pago");
       }
     } catch (error) {
-      console.error("Error starting checkout:", error);
-      toast.error("Error al iniciar el proceso de pago");
+      console.error("Error processing payment:", error);
+      toast.error("Error al procesar el pago");
     } finally {
       setIsProcessingPayment(false);
     }
   };
 
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString("es-ES", {
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+    return dateObj.toLocaleDateString("es-ES", {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -213,10 +190,9 @@ export default function ProductDetailView({
 
   const getTimeSincePublished = (date: string | Date) => {
     const now = new Date();
-    const published = new Date(date);
-    const diffInDays = Math.floor(
-      (now.getTime() - published.getTime()) / (1000 * 60 * 60 * 24)
-    );
+    const publishedDate = typeof date === "string" ? new Date(date) : date;
+    const diffInMs = now.getTime() - publishedDate.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
     if (diffInDays === 0) return "Hoy";
     if (diffInDays === 1) return "Ayer";
@@ -227,29 +203,39 @@ export default function ProductDetailView({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">
-            Cargando producto...
-          </p>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
       </div>
     );
   }
 
   if (!product) {
-    return null;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Producto no encontrado
+          </h2>
+          <Button onClick={() => router.push("/productos")}>
+            Ver todos los productos
+          </Button>
+        </div>
+      </div>
+    );
   }
 
-  const condition =
+  const discountedPrice = product.discount
+    ? product.publicPrice - (product.publicPrice * product.discount) / 100
+    : product.publicPrice;
+
+  const currentCondition =
     conditionLabels[product.condition as keyof typeof conditionLabels];
-  const category =
+  const currentCategory =
     categoryLabels[product.category as keyof typeof categoryLabels];
   const isOwner = session?.user?.email === product.seller.email;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+    <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <nav className="flex mb-8" aria-label="Breadcrumb">
@@ -257,7 +243,7 @@ export default function ProductDetailView({
             <li>
               <button
                 onClick={() => router.push("/productos")}
-                className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
+                className="text-gray-400 hover:text-gray-500"
               >
                 Productos
               </button>
@@ -272,7 +258,7 @@ export default function ProductDetailView({
                 >
                   <path d="M5.555 17.776l8-16 .894.448-8 16-.894-.448z" />
                 </svg>
-                <span className="ml-4 text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                <span className="ml-4 text-sm font-medium text-gray-500 truncate">
                   {product.brand} {product.model}
                 </span>
               </div>
@@ -280,143 +266,41 @@ export default function ProductDetailView({
           </ol>
         </nav>
 
-        <div className="lg:grid lg:grid-cols-2 lg:gap-x-8 lg:items-start">
-          {/* Galería de imágenes */}
-          <div className="flex flex-col-reverse">
-            <ImageGallery
-              images={product.images}
-              alt={`${product.brand} ${product.model}`}
-            />
-          </div>
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6">
+            {/* Galería de imágenes */}
+            <div className="space-y-4">
+              <ImageGallery
+                images={product.images || []}
+                alt={`${product.brand} ${product.model}`}
+              />
+            </div>
 
-          {/* Información del producto */}
-          <div className="mt-10 px-4 sm:px-0 sm:mt-16 lg:mt-0">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              {/* Header */}
-              <div className="mb-6">
+            {/* Información del producto */}
+            <div className="space-y-6">
+              {/* Título y estado */}
+              <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {category}
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${condition.color}`}
-                  >
-                    {condition.label}
-                  </span>
-                </div>
-
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {product.brand} {product.model}
-                </h1>
-
-                <div className="flex items-center space-x-4 mt-2">
-                  <span className="text-lg text-gray-600 dark:text-gray-400">
-                    Año {product.year}
-                  </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {product.views || 0} visualizaciones
-                  </span>
-                </div>
-              </div>
-
-              {/* Precio */}
-              <div className="mb-8">
-                <p className="text-4xl font-bold text-green-600">
-                  €{product.publicPrice.toLocaleString()}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  {condition.description}
-                </p>
-              </div>
-
-              {/* Botones de acción */}
-              {!isOwner && !product.sold && (
-                <div className="space-y-4 mb-8">
-                  {/* Botón principal de compra */}
-                  <Button
-                    onClick={buyProduct}
-                    disabled={isProcessingPayment}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
-                    size="lg"
-                  >
-                    {isProcessingPayment ? (
-                      <>
-                        <svg
-                          className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
-                        Procesando...
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          className="w-5 h-5 mr-2"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0H16"
-                          />
-                        </svg>
-                        Comprar Ahora - €{product.publicPrice.toLocaleString()}
-                      </>
-                    )}
-                  </Button>
-
-                  {/* Botones secundarios */}
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <Button
-                      onClick={contactSeller}
-                      variant="outline"
-                      className="flex-1"
-                      size="lg"
-                    >
-                      <svg
-                        className="w-5 h-5 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                        />
-                      </svg>
-                      Contactar Vendedor
-                    </Button>
-
-                    <Button
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    {product.brand} {product.model}
+                  </h1>
+                  {session && (
+                    <button
                       onClick={toggleFavorite}
-                      variant="outline"
                       disabled={addingToFavorites}
-                      className={`flex-1 ${isFavorite ? "text-red-600 border-red-600 hover:bg-red-50" : "text-gray-600 border-gray-300 hover:bg-gray-50"}`}
+                      className={`p-3 rounded-full transition-colors ${
+                        hookIsFavorite(productId)
+                          ? "bg-pink-500 text-white hover:bg-pink-600"
+                          : "bg-gray-100 text-gray-400 hover:text-pink-500 hover:bg-pink-50"
+                      } ${addingToFavorites ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <svg
-                        className={`w-5 h-5 mr-2 ${isFavorite ? "fill-current" : ""}`}
-                        fill={isFavorite ? "currentColor" : "none"}
-                        stroke="currentColor"
+                        className="w-6 h-6"
+                        fill={
+                          hookIsFavorite(productId) ? "currentColor" : "none"
+                        }
                         viewBox="0 0 24 24"
+                        stroke="currentColor"
                       >
                         <path
                           strokeLinecap="round"
@@ -425,155 +309,121 @@ export default function ProductDetailView({
                           d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                         />
                       </svg>
-                      {isFavorite ? "En Favoritos" : "Añadir a Favoritos"}
-                    </Button>
-                  </div>
+                    </button>
+                  )}
                 </div>
-              )}
 
-              {/* Producto vendido */}
-              {!isOwner && product.sold && (
-                <div className="mb-8">
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                    <div className="flex items-center">
-                      <svg
-                        className="h-5 w-5 text-red-400 mr-2"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                        Este producto ya ha sido vendido
-                      </span>
-                    </div>
-                  </div>
+                <p className="text-gray-600">{currentCategory}</p>
+
+                {/* Estado y condición */}
+                <div className="flex items-center gap-3 mt-3">
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      product.sold
+                        ? "bg-red-100 text-red-800"
+                        : "bg-green-100 text-green-800"
+                    }`}
+                  >
+                    {product.sold ? "Vendido" : "Disponible"}
+                  </span>
+
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${currentCondition?.color}`}
+                  >
+                    Estado: {currentCondition?.label}
+                  </span>
                 </div>
-              )}
+              </div>
+
+              {/* Precio */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center gap-3">
+                  {product.discount ? (
+                    <>
+                      <span className="text-3xl font-bold text-green-600">
+                        {discountedPrice.toLocaleString("es-ES")}€
+                      </span>
+                      <span className="text-xl text-gray-500 line-through">
+                        {product.publicPrice.toLocaleString("es-ES")}€
+                      </span>
+                      <span className="bg-red-500 text-white px-2 py-1 rounded text-sm font-medium">
+                        -{product.discount}%
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-3xl font-bold text-green-600">
+                      {product.publicPrice.toLocaleString("es-ES")}€
+                    </span>
+                  )}
+                </div>
+              </div>
 
               {/* Descripción */}
-              <div className="mb-8">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                  Descripción
-                </h3>
-                <div className="prose prose-sm max-w-none dark:prose-invert text-gray-700 dark:text-gray-300">
-                  <p className="whitespace-pre-wrap">{product.description}</p>
+              {product.description && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Descripción
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">
+                    {product.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Detalles técnicos */}
+              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                <div>
+                  <span className="text-sm text-gray-500">Marca</span>
+                  <p className="font-medium">{product.brand}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Modelo</span>
+                  <p className="font-medium">{product.model}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Categoría</span>
+                  <p className="font-medium">{currentCategory}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Condición</span>
+                  <p className="font-medium">{currentCondition?.label}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Visualizaciones</span>
+                  <p className="font-medium">{product.views}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Publicado</span>
+                  <p className="font-medium">
+                    {getTimeSincePublished(product.createdAt)}
+                  </p>
                 </div>
               </div>
 
-              {/* Información adicional */}
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                  Detalles
-                </h3>
-                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Marca
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                      {product.brand}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Modelo
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                      {product.model}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Año
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                      {product.year}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Estado
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                      {condition.label}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Categoría
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                      {category}
-                    </dd>
-                  </div>
-                  {product.location && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        Ubicación
-                      </dt>
-                      <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                        {product.location}
-                      </dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Publicado
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                      {getTimeSincePublished(product.createdAt)}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
+              {/* Botones de acción */}
+              {!product.sold && !isOwner && (
+                <div className="space-y-3">
+                  <Button
+                    onClick={buyProduct}
+                    disabled={isProcessingPayment}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    {isProcessingPayment ? "Procesando..." : "Comprar ahora"}
+                  </Button>
 
-              {/* Información del vendedor */}
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                  Vendedor
-                </h3>
-                <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
-                    {product.seller.image ? (
-                      <Image
-                        className="h-12 w-12 rounded-full"
-                        src={product.seller.image}
-                        alt={product.seller.name || "Vendedor"}
-                        width={48}
-                        height={48}
-                      />
-                    ) : (
-                      <div className="h-12 w-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                        <span className="text-lg font-medium text-gray-700 dark:text-gray-200">
-                          {product.seller.name?.charAt(0).toUpperCase() || "V"}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                      {product.seller.name}
-                    </h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Miembro desde {formatDate(product.seller.createdAt)}
-                    </p>
-                    {product.seller.location && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        📍 {product.seller.location}
-                      </p>
-                    )}
-                  </div>
+                  <Button
+                    onClick={contactSeller}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Contactar vendedor
+                  </Button>
                 </div>
-              </div>
+              )}
 
-              {/* Propietario del producto */}
+              {/* Mensaje para el propietario */}
               {isOwner && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-8">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center">
                     <svg
                       className="h-5 w-5 text-blue-400 mr-2"
@@ -586,13 +436,95 @@ export default function ProductDetailView({
                         clipRule="evenodd"
                       />
                     </svg>
-                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    <span className="text-sm font-medium text-blue-800">
                       Este es tu producto. Puedes editarlo desde &quot;Mis
                       Productos&quot;.
                     </span>
                   </div>
                 </div>
               )}
+
+              {/* Producto vendido */}
+              {product.sold && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <svg
+                      className="h-5 w-5 text-red-400 mr-2"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span className="text-sm font-medium text-red-800">
+                      Este producto ya ha sido vendido
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Información del vendedor */}
+          <div className="border-t bg-gray-50 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Información del vendedor
+            </h3>
+
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0">
+                {product.seller.image ? (
+                  <Image
+                    src={product.seller.image}
+                    alt={product.seller.name || "Vendedor"}
+                    width={60}
+                    height={60}
+                    className="rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-15 h-15 bg-gray-300 rounded-full flex items-center justify-center">
+                    <svg
+                      className="w-8 h-8 text-gray-500"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-900">
+                  {product.seller.name || "Vendedor"}
+                </h4>
+                <p className="text-sm text-gray-500">
+                  Miembro desde {formatDate(product.seller.createdAt)}
+                </p>
+                {product.seller.location && (
+                  <p className="text-sm text-gray-600 flex items-center gap-1">
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    {product.seller.location}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

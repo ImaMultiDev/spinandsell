@@ -8,6 +8,7 @@ import { Product } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { formatPrice } from "@/libs/utils";
 import { PRODUCT_CONDITIONS } from "@/types";
+import { useFavorites } from "@/hooks/useFavorites";
 
 interface ProductCardProps {
   product: Product;
@@ -24,6 +25,12 @@ export default function ProductCard({
   const router = useRouter();
   const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
   const [isLoadingContact, setIsLoadingContact] = useState(false);
+  const { isFavorite: hookIsFavorite, toggleFavorite } = useFavorites();
+
+  // Usar el valor del hook o el prop como fallback
+  const actualIsFavorite = onToggleFavorite
+    ? isFavorite
+    : hookIsFavorite(product.id);
 
   const discountedPrice = product.discount
     ? product.publicPrice - (product.publicPrice * product.discount) / 100
@@ -45,29 +52,14 @@ export default function ProductCard({
         // Si se proporciona una función personalizada, usarla
         onToggleFavorite(product.id);
       } else {
-        // Lógica por defecto para agregar/quitar favoritos
-        if (isFavorite) {
-          const response = await fetch(`/api/favorites/${product.id}`, {
-            method: "DELETE",
-          });
-
-          if (response.ok) {
-            toast.success("Eliminado de favoritos");
-          } else {
-            toast.error("Error al eliminar favorito");
-          }
+        // Usar el hook useFavorites para manejar el estado
+        const success = await toggleFavorite(product.id);
+        if (success) {
+          toast.success(
+            actualIsFavorite ? "Eliminado de favoritos" : "Agregado a favoritos"
+          );
         } else {
-          const response = await fetch("/api/favorites", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ productId: product.id }),
-          });
-
-          if (response.ok) {
-            toast.success("Agregado a favoritos");
-          } else {
-            toast.error("Error al agregar favorito");
-          }
+          toast.error("Error al actualizar favoritos");
         }
       }
     } catch {
@@ -173,14 +165,14 @@ export default function ProductCard({
             onClick={handleToggleFavorite}
             disabled={isLoadingFavorite}
             className={`absolute top-2 left-2 p-2 rounded-full transition-colors ${
-              isFavorite
+              actualIsFavorite
                 ? "bg-pink-500 text-white hover:bg-pink-600"
                 : "bg-white text-gray-400 hover:text-pink-500 hover:bg-pink-50"
             } ${isLoadingFavorite ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <svg
               className="w-4 h-4"
-              fill={isFavorite ? "currentColor" : "none"}
+              fill={actualIsFavorite ? "currentColor" : "none"}
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
