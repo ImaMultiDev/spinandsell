@@ -19,14 +19,14 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
-                className="bg-white text-green-600 hover:bg-gray-100"
+                className="bg-white text-green-600 hover:bg-gray-200"
               >
                 Explorar Productos
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="border-white text-white hover:bg-white hover:text-green-600"
+                className="bg-white text-green-600 hover:bg-gray-200"
               >
                 Vender mi Producto
               </Button>
