@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { PRODUCT_CATEGORIES } from "@/types";
+import FeaturedProducts from "@/components/FeaturedProducts";
 
 export default function Home() {
   return (
@@ -17,19 +18,23 @@ export default function Home() {
               de segunda mano
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                size="lg"
-                className="bg-white text-green-600 hover:bg-gray-100"
-              >
-                Explorar Productos
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="bg-white text-green-600 hover:bg-gray-100"
-              >
-                Vender mi Producto
-              </Button>
+              <Link href="/productos">
+                <Button
+                  size="lg"
+                  className="bg-white text-green-600 hover:bg-gray-100 w-full sm:w-auto"
+                >
+                  Explorar Productos
+                </Button>
+              </Link>
+              <Link href="/vender">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-white text-green-600 hover:bg-gray-100 w-full sm:w-auto"
+                >
+                  Vender mi Producto
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -78,7 +83,7 @@ export default function Home() {
             {Object.entries(PRODUCT_CATEGORIES).map(([key, value]) => (
               <Link
                 key={key}
-                href={`/categoria/${key.toLowerCase()}`}
+                href={`/productos?category=${key}`}
                 className="group bg-white rounded-lg border hover:shadow-lg transition-shadow p-6 text-center"
               >
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-green-200">
@@ -182,37 +187,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Placeholder for featured products - These would come from the database */}
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="bg-white rounded-lg border hover:shadow-lg transition-shadow overflow-hidden"
-              >
-                <div className="h-48 bg-gray-200 relative">
-                  <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-sm">
-                    Estado A
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="font-semibold mb-2">
-                    Bicicleta de Montaña Trek
-                  </h3>
-                  <p className="text-gray-600 text-sm mb-2">
-                    2022 • Estado Excelente
-                  </p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold text-green-600">
-                      €899
-                    </span>
-                    <Link href="/productos">
-                      <Button size="sm">Ver detalles</Button>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <FeaturedProducts />
 
           <div className="text-center mt-8">
             <Link href="/productos">

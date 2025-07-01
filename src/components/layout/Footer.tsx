@@ -32,7 +32,7 @@ export default function Footer() {
             <ul className="space-y-2 text-sm text-gray-600">
               <li>
                 <Link
-                  href="/categoria/road_bike"
+                  href="/productos?category=ROAD_BIKE"
                   className="hover:text-primary"
                 >
                   Bicicletas de Ciclismo
@@ -40,7 +40,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="/categoria/mountain_bike"
+                  href="/productos?category=MOUNTAIN_BIKE"
                   className="hover:text-primary"
                 >
                   Bicicletas de Montaña
@@ -48,7 +48,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="/categoria/spinning_bike"
+                  href="/productos?category=SPINNING_BIKE"
                   className="hover:text-primary"
                 >
                   Bicicletas de Spinning
@@ -56,7 +56,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="/categoria/electric_bike"
+                  href="/productos?category=ELECTRIC_BIKE"
                   className="hover:text-primary"
                 >
                   Bicicletas Eléctricas
@@ -64,7 +64,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="/categoria/electric_scooter"
+                  href="/productos?category=ELECTRIC_SCOOTER"
                   className="hover:text-primary"
                 >
                   Patinetes Eléctricos

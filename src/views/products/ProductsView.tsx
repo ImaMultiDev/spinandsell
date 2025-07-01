@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { Product, ProductFilter } from "@/types";
+import { ProductCategory, ProductCondition } from "@prisma/client";
 import ProductFilters from "./components/ProductFilters";
 import ProductSorting from "./components/ProductSorting";
 import ProductGrid from "./components/ProductGrid";
@@ -19,6 +21,7 @@ interface ProductsResponse {
 }
 
 export default function ProductsView() {
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [filters, setFilters] = useState<ProductFilter>({});
   const [sortBy, setSortBy] = useState("newest");
@@ -26,6 +29,27 @@ export default function ProductsView() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalProducts, setTotalProducts] = useState(0);
+
+  // Inicializar filtros desde URL
+  useEffect(() => {
+    const initialFilters: ProductFilter = {};
+
+    const category = searchParams.get("category");
+    const condition = searchParams.get("condition");
+    const brand = searchParams.get("brand");
+    const minPrice = searchParams.get("minPrice");
+    const maxPrice = searchParams.get("maxPrice");
+    const search = searchParams.get("search");
+
+    if (category) initialFilters.category = category as ProductCategory;
+    if (condition) initialFilters.condition = condition as ProductCondition;
+    if (brand) initialFilters.brand = brand;
+    if (minPrice) initialFilters.minPrice = Number(minPrice);
+    if (maxPrice) initialFilters.maxPrice = Number(maxPrice);
+    if (search) initialFilters.search = search;
+
+    setFilters(initialFilters);
+  }, [searchParams]);
 
   // Cargar productos desde la API
   const loadProducts = useCallback(
