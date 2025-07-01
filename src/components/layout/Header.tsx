@@ -46,6 +46,12 @@ export default function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
             <div className="relative group">
+              <Link
+                href="/productos"
+                className="text-sm font-medium hover:text-primary"
+              >
+                Todos los Productos
+              </Link>
               <button className="flex items-center space-x-1 text-sm font-medium hover:text-primary">
                 <span>Categorías</span>
                 <svg
@@ -76,12 +82,7 @@ export default function Header() {
                 </div>
               </div>
             </div>
-            <Link
-              href="/productos"
-              className="text-sm font-medium hover:text-primary"
-            >
-              Todos los Productos
-            </Link>
+
             {session && (
               <Link
                 href="/vender"

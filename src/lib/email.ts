@@ -101,7 +101,7 @@ export const sendPurchaseConfirmationToBuyer = async (
   const transporter = createTransporter();
 
   await transporter.sendMail({
-    from: `"SpinAndSell" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+    from: process.env.SMTP_FROM || `SpinAndSell <${process.env.SMTP_USER}>`,
     to: buyer.email,
     subject: `✅ Compra confirmada - ${product.brand} ${product.model}`,
     html: getBaseTemplate("Compra Confirmada", content),
@@ -164,7 +164,7 @@ export const sendSaleNotificationToSeller = async (
   const transporter = createTransporter();
 
   await transporter.sendMail({
-    from: `"SpinAndSell" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+    from: process.env.SMTP_FROM || `SpinAndSell <${process.env.SMTP_USER}>`,
     to: seller.email,
     subject: `🎉 ¡Producto vendido! - ${product.brand} ${product.model}`,
     html: getBaseTemplate("Producto Vendido", content),
@@ -202,7 +202,7 @@ export const sendPaymentFailedNotification = async (
   const transporter = createTransporter();
 
   await transporter.sendMail({
-    from: `"SpinAndSell" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+    from: process.env.SMTP_FROM || `SpinAndSell <${process.env.SMTP_USER}>`,
     to: buyerEmail,
     subject: "⚠️ Problema con el pago - SpinAndSell",
     html: getBaseTemplate("Problema con el Pago", content),
