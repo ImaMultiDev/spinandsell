@@ -23,6 +23,14 @@ enum ProductCategory {
   ELECTRIC_SCOOTER
 }
 
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
 model User {
   id              String    @id @default(cuid())
   name            String?
@@ -50,6 +58,10 @@ model User {
   conversationsAsUser1 Conversation[] @relation("ConversationUser1")
   conversationsAsUser2 Conversation[] @relation("ConversationUser2")
   sentMessages         Message[]
+  
+  // Transaction relationships
+  soldTransactions     Transaction[] @relation("TransactionSeller")
+  boughtTransactions   Transaction[] @relation("TransactionBuyer")
 }
 
 model Product {
@@ -86,6 +98,7 @@ model Product {
   favorites        Favorite[]
   viewsRelation    View[]
   conversations    Conversation[]
+  transactions     Transaction[]
   
   // Logistics and Invoice
   invoice          String?         // URL or path to invoice file
@@ -98,6 +111,43 @@ model Product {
   @@index([category])
   @@index([brand])
   @@index([condition])
+}
+
+// Transaction Model - Registro de pagos y ventas
+model Transaction {
+  id                String            @id @default(cuid())
+  stripeSessionId   String            @unique
+  stripePaymentIntentId String?
+  productId         String
+  sellerId          String
+  buyerId           String
+  amount            Int               // En centavos (ej: 15000 = €150.00)
+  platformFee       Int               // Comisión de la plataforma en centavos
+  currency          String            @default("eur")
+  status            TransactionStatus @default(PENDING)
+  
+  // Invoice details
+  invoiceNumber     String?           @unique
+  invoiceUrl        String?
+  taxAmount         Int?              // IVA en centavos
+  
+  // Metadata
+  metadata          Json?             // Información adicional de Stripe
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  completedAt       DateTime?
+  
+  // Relationships
+  product           Product           @relation(fields: [productId], references: [id])
+  seller            User              @relation("TransactionSeller", fields: [sellerId], references: [id])
+  buyer             User              @relation("TransactionBuyer", fields: [buyerId], references: [id])
+  
+  @@index([productId])
+  @@index([sellerId])
+  @@index([buyerId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Favorite {

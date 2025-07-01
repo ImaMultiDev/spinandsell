@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/libs/prisma";
+import {
+  sendPurchaseConfirmationToBuyer,
+  sendSaleNotificationToSeller,
+} from "@/lib/email";
+import {
+  generateInvoiceData,
+  generateInvoicePDF,
+  uploadInvoiceToStorage,
+} from "@/lib/invoice";
 import Stripe from "stripe";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -75,8 +84,7 @@ async function handleCheckoutSessionCompleted(
 ) {
   console.log("Processing checkout.session.completed:", session.id);
 
-  const { productId, sellerId, buyerId /*, platformFee */ } =
-    session.metadata || {};
+  const { productId, sellerId, buyerId, platformFee } = session.metadata || {};
 
   if (!productId || !sellerId || !buyerId) {
     console.error(
@@ -87,7 +95,46 @@ async function handleCheckoutSessionCompleted(
   }
 
   try {
-    // Actualizar producto como vendido y pagado
+    // 1. Obtener datos completos del producto, vendedor y comprador
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        seller: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    const buyer = await prisma.user.findUnique({
+      where: { id: buyerId },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!product || !buyer || !product.seller) {
+      console.error("Product, buyer, or seller not found");
+      return;
+    }
+
+    // 2. Crear registro de transacción
+    const transaction = await prisma.transaction.create({
+      data: {
+        stripeSessionId: session.id,
+        stripePaymentIntentId: session.payment_intent as string,
+        productId: productId,
+        sellerId: sellerId,
+        buyerId: buyerId,
+        amount: session.amount_total || 0,
+        platformFee: parseInt(platformFee || "0"),
+        currency: session.currency || "eur",
+        status: "COMPLETED",
+        completedAt: new Date(),
+        metadata: {
+          sessionId: session.id,
+          amount: session.amount_total,
+          currency: session.currency,
+        },
+      },
+    });
+
+    // 3. Actualizar producto como vendido y pagado
     await prisma.product.update({
       where: { id: productId },
       data: {
@@ -95,30 +142,133 @@ async function handleCheckoutSessionCompleted(
         paid: true,
         buyerId: buyerId,
         exitDate: new Date(),
-        deliveryDate: new Date(), // En un marketplace real, esto sería cuando se entregue
       },
     });
 
-    // TODO: Crear registro de transacción cuando se implemente el modelo Transaction
-    // await prisma.transaction.create({
-    //   data: {
-    //     stripeSessionId: session.id,
-    //     productId: productId,
-    //     sellerId: sellerId,
-    //     buyerId: buyerId,
-    //     amount: session.amount_total || 0,
-    //     platformFee: parseInt(platformFee || "0"),
-    //     currency: session.currency || "eur",
-    //     status: "completed",
-    //   },
-    // });
+    // 4. Generar factura
+    let invoiceUrl: string | null = null;
+    try {
+      const invoiceData = generateInvoiceData({
+        ...transaction,
+        product: {
+          brand: product.brand,
+          model: product.model,
+          year: product.year,
+          publicPrice: product.publicPrice,
+        },
+        seller: {
+          name: product.seller.name,
+          email: product.seller.email!,
+        },
+        buyer: {
+          name: buyer.name,
+          email: buyer.email!,
+        },
+      } as Parameters<typeof generateInvoiceData>[0]);
 
-    console.log(`Product ${productId} marked as sold and paid`);
+      const invoiceBuffer = await generateInvoicePDF(invoiceData);
+      invoiceUrl = await uploadInvoiceToStorage(
+        invoiceBuffer,
+        invoiceData.transaction.invoiceNumber!
+      );
 
-    // TODO: Enviar emails de confirmación a comprador y vendedor
-    // TODO: Crear conversación automática entre comprador y vendedor
+      // Actualizar transacción con datos de factura
+      await prisma.transaction.update({
+        where: { id: transaction.id },
+        data: {
+          invoiceNumber: invoiceData.transaction.invoiceNumber,
+          invoiceUrl: invoiceUrl,
+          taxAmount: invoiceData.transaction.taxAmount,
+        },
+      });
+    } catch (invoiceError) {
+      console.error("Error generating invoice:", invoiceError);
+      // Continuar sin factura si hay error
+    }
+
+    // 5. Enviar emails de confirmación
+    try {
+      const transactionForEmails = {
+        ...transaction,
+        invoiceUrl,
+        product: {
+          brand: product.brand,
+          model: product.model,
+          year: product.year,
+          publicPrice: product.publicPrice,
+        },
+        seller: {
+          name: product.seller.name,
+          email: product.seller.email!,
+        },
+        buyer: {
+          name: buyer.name,
+          email: buyer.email!,
+        },
+      } as Parameters<typeof sendPurchaseConfirmationToBuyer>[0];
+
+      // Email al comprador
+      await sendPurchaseConfirmationToBuyer(transactionForEmails);
+
+      // Email al vendedor
+      await sendSaleNotificationToSeller(transactionForEmails);
+
+      console.log("Confirmation emails sent successfully");
+    } catch (emailError) {
+      console.error("Error sending emails:", emailError);
+      // Continuar sin emails si hay error
+    }
+
+    // 6. Crear conversación automática entre comprador y vendedor
+    try {
+      const existingConversation = await prisma.conversation.findFirst({
+        where: {
+          OR: [
+            {
+              participant1Id: buyerId,
+              participant2Id: sellerId,
+              productId: productId,
+            },
+            {
+              participant1Id: sellerId,
+              participant2Id: buyerId,
+              productId: productId,
+            },
+          ],
+        },
+      });
+
+      if (!existingConversation) {
+        const conversation = await prisma.conversation.create({
+          data: {
+            participant1Id: buyerId,
+            participant2Id: sellerId,
+            productId: productId,
+            lastMessageAt: new Date(),
+          },
+        });
+
+        // Mensaje inicial automático
+        await prisma.message.create({
+          data: {
+            content: `¡Hola! Acabo de comprar tu ${product.brand} ${product.model}. ¿Podemos coordinar la entrega?`,
+            conversationId: conversation.id,
+            senderId: buyerId,
+          },
+        });
+
+        console.log("Automatic conversation created");
+      }
+    } catch (conversationError) {
+      console.error("Error creating conversation:", conversationError);
+      // Continuar sin conversación si hay error
+    }
+
+    console.log(
+      `Product ${productId} processed successfully - Transaction ${transaction.id}`
+    );
   } catch (error: unknown) {
-    console.error("Error updating product after successful payment:", error);
+    console.error("Error processing checkout completion:", error);
     throw error;
   }
 }

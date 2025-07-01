@@ -107,3 +107,51 @@ export interface ConversationWithMessages
   extends Omit<Conversation, "lastMessage"> {
   messages: Message[];
 }
+
+// Transaction Types
+export type TransactionStatus =
+  | "PENDING"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED"
+  | "REFUNDED";
+
+export interface Transaction {
+  id: string;
+  stripeSessionId: string;
+  stripePaymentIntentId?: string | null;
+  productId: string;
+  sellerId: string;
+  buyerId: string;
+  amount: number; // En centavos
+  platformFee: number; // En centavos
+  currency: string;
+  status: TransactionStatus;
+  invoiceNumber?: string | null;
+  invoiceUrl?: string | null;
+  taxAmount?: number | null; // IVA en centavos
+  metadata?: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date | null;
+
+  // Relations (opcional)
+  product?: Product;
+  seller?: User;
+  buyer?: User;
+}
+
+export interface InvoiceData {
+  transaction: Transaction;
+  product: Product;
+  seller: User;
+  buyer: User;
+  companyInfo: {
+    name: string;
+    address: string;
+    taxId: string;
+    email: string;
+    phone: string;
+    website: string;
+  };
+}
