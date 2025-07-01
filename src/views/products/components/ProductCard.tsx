@@ -9,6 +9,11 @@ import { Button } from "@/components/ui/Button";
 import { formatPrice } from "@/libs/utils";
 import { PRODUCT_CONDITIONS } from "@/types";
 import { useFavorites } from "@/hooks/useFavorites";
+import {
+  isAdminProduct,
+  getAdminProductStyles,
+  getAdminBranding,
+} from "@/lib/admin";
 
 interface ProductCardProps {
   product: Product;
@@ -26,6 +31,11 @@ export default function ProductCard({
   const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
   const [isLoadingContact, setIsLoadingContact] = useState(false);
   const { isFavorite: hookIsFavorite, toggleFavorite } = useFavorites();
+
+  // Verificar si es producto del admin
+  const isAdmin = isAdminProduct(product.sellerId);
+  const adminStyles = getAdminProductStyles();
+  const adminBranding = getAdminBranding();
 
   // Usar el valor del hook o el prop como fallback
   const actualIsFavorite = onToggleFavorite
@@ -126,7 +136,11 @@ export default function ProductCard({
   };
 
   return (
-    <div className="bg-white rounded-lg border hover:shadow-lg transition-shadow overflow-hidden group">
+    <div
+      className={`bg-white rounded-lg border hover:shadow-lg transition-shadow overflow-hidden group ${
+        isAdmin ? adminStyles.cardBorder : ""
+      }`}
+    >
       {/* Imagen del producto */}
       <div className="relative h-48 bg-gray-200 overflow-hidden">
         <Image
@@ -143,8 +157,24 @@ export default function ProductCard({
           </div>
         )}
 
+        {/* Badge especial para productos del admin */}
+        {isAdmin && (
+          <div
+            className={`absolute top-2 left-1/2 transform -translate-x-1/2 ${adminBranding.badgeColor} text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg border-2 border-white z-10`}
+          >
+            <span className="flex items-center gap-1">
+              <span>{adminBranding.icon}</span>
+              <span>{adminBranding.badgeText}</span>
+            </span>
+          </div>
+        )}
+
         {/* Badge de estado */}
-        <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-sm font-medium">
+        <div
+          className={`absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-sm font-medium ${
+            isAdmin ? "mt-8" : ""
+          }`}
+        >
           {PRODUCT_CONDITIONS[product.condition]}
         </div>
 

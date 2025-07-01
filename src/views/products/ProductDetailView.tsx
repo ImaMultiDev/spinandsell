@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import ImageGallery from "@/views/products/components/ImageGallery";
 import { Product } from "@/types";
 import { useFavorites } from "@/hooks/useFavorites";
+import { isAdminProduct, getAdminBranding } from "@/lib/admin";
 
 interface ProductDetailViewProps {
   productId: string;
@@ -234,6 +235,10 @@ export default function ProductDetailView({
     categoryLabels[product.category as keyof typeof categoryLabels];
   const isOwner = session?.user?.email === product.seller.email;
 
+  // Verificar si es producto del admin
+  const isAdmin = isAdminProduct(product.seller.email);
+  const adminBranding = getAdminBranding();
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -266,7 +271,27 @@ export default function ProductDetailView({
           </ol>
         </nav>
 
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div
+          className={`bg-white rounded-lg shadow-lg overflow-hidden ${
+            isAdmin ? "ring-4 ring-yellow-400 ring-opacity-50" : ""
+          }`}
+        >
+          {/* Badge especial para productos del admin */}
+          {isAdmin && (
+            <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-white text-center py-3">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-xl">{adminBranding.icon}</span>
+                <span className="font-bold text-lg">
+                  {adminBranding.badgeText}
+                </span>
+                <span className="text-xl">{adminBranding.icon}</span>
+              </div>
+              <p className="text-sm mt-1 opacity-90">
+                Producto verificado y garantizado por nuestro equipo
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6">
             {/* Galería de imágenes */}
             <div className="space-y-4">
@@ -283,6 +308,12 @@ export default function ProductDetailView({
                 <div className="flex items-center justify-between mb-2">
                   <h1 className="text-3xl font-bold text-gray-900">
                     {product.brand} {product.model}
+                    {isAdmin && (
+                      <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 text-yellow-800">
+                        <span className="mr-1">{adminBranding.icon}</span>
+                        Spin&Sell
+                      </span>
+                    )}
                   </h1>
                   {session && (
                     <button
@@ -332,15 +363,38 @@ export default function ProductDetailView({
                   >
                     Estado: {currentCondition?.label}
                   </span>
+
+                  {isAdmin && (
+                    <span className="px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                      ✅ Verificado
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Precio */}
-              <div className="bg-gray-50 p-4 rounded-lg">
+              {/* Precio con destacado especial para admin */}
+              <div
+                className={`p-4 rounded-lg ${
+                  isAdmin
+                    ? "bg-gradient-to-r from-yellow-50 to-yellow-100 border-2 border-yellow-300"
+                    : "bg-gray-50"
+                }`}
+              >
+                {isAdmin && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-yellow-600 font-semibold text-sm">
+                      🏷️ Precio oficial Spin&Sell
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   {product.discount ? (
                     <>
-                      <span className="text-3xl font-bold text-green-600">
+                      <span
+                        className={`text-3xl font-bold ${
+                          isAdmin ? "text-yellow-700" : "text-green-600"
+                        }`}
+                      >
                         {discountedPrice.toLocaleString("es-ES")}€
                       </span>
                       <span className="text-xl text-gray-500 line-through">
@@ -351,11 +405,20 @@ export default function ProductDetailView({
                       </span>
                     </>
                   ) : (
-                    <span className="text-3xl font-bold text-green-600">
+                    <span
+                      className={`text-3xl font-bold ${
+                        isAdmin ? "text-yellow-700" : "text-green-600"
+                      }`}
+                    >
                       {product.publicPrice.toLocaleString("es-ES")}€
                     </span>
                   )}
                 </div>
+                {isAdmin && (
+                  <p className="text-xs text-yellow-600 mt-1">
+                    ⭐ Producto con garantía de calidad
+                  </p>
+                )}
               </div>
 
               {/* Descripción */}
@@ -469,14 +532,24 @@ export default function ProductDetailView({
           </div>
 
           {/* Información del vendedor */}
-          <div className="border-t bg-gray-50 p-6">
+          <div
+            className={`border-t p-6 ${
+              isAdmin
+                ? "bg-gradient-to-r from-yellow-50 to-yellow-100"
+                : "bg-gray-50"
+            }`}
+          >
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Información del vendedor
+              {isAdmin ? "Vendedor Oficial" : "Información del vendedor"}
             </h3>
 
             <div className="flex items-center gap-4">
               <div className="flex-shrink-0">
-                {product.seller.image ? (
+                {isAdmin ? (
+                  <div className="w-15 h-15 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center">
+                    <span className="text-2xl text-white font-bold">S&S</span>
+                  </div>
+                ) : product.seller.image ? (
                   <Image
                     src={product.seller.image}
                     alt={product.seller.name || "Vendedor"}
@@ -502,29 +575,66 @@ export default function ProductDetailView({
               </div>
 
               <div className="flex-1">
-                <h4 className="font-medium text-gray-900">
-                  {product.seller.name || "Vendedor"}
+                <h4
+                  className={`font-medium ${
+                    isAdmin ? "text-yellow-800" : "text-gray-900"
+                  }`}
+                >
+                  {isAdmin
+                    ? "Spin & Sell - Tienda Oficial"
+                    : product.seller.name || "Vendedor"}
                 </h4>
-                <p className="text-sm text-gray-500">
-                  Miembro desde {formatDate(product.seller.createdAt)}
-                </p>
-                {product.seller.location && (
-                  <p className="text-sm text-gray-600 flex items-center gap-1">
-                    <svg
-                      className="w-4 h-4"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    {product.seller.location}
-                  </p>
+                {isAdmin ? (
+                  <div className="space-y-1">
+                    <p className="text-sm text-yellow-700 font-medium">
+                      ⭐ Vendedor verificado y de confianza
+                    </p>
+                    <p className="text-sm text-yellow-600">
+                      🚚 Envío rápido y seguro garantizado
+                    </p>
+                    <p className="text-sm text-yellow-600">
+                      🔒 Garantía de devolución de 30 días
+                    </p>
+                    <p className="text-sm text-yellow-600">
+                      🛠️ Servicio técnico especializado
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-500">
+                      Miembro desde {formatDate(product.seller.createdAt)}
+                    </p>
+                    {product.seller.location && (
+                      <p className="text-sm text-gray-600 flex items-center gap-1">
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        {product.seller.location}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
+
+              {/* Badge adicional para admin */}
+              {isAdmin && (
+                <div className="flex-shrink-0">
+                  <div className="bg-yellow-200 text-yellow-800 px-3 py-2 rounded-lg text-center">
+                    <div className="text-lg font-bold">
+                      {adminBranding.icon}
+                    </div>
+                    <div className="text-xs font-semibold">Oficial</div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
