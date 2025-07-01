@@ -37,6 +37,15 @@ export default function ProductCard({
   const adminStyles = getAdminProductStyles();
   const adminBranding = getAdminBranding();
 
+  // DEBUG: Agregar logs temporales para debuggear
+  console.log("ProductCard Debug:", {
+    productId: product.id,
+    sellerId: product.sellerId,
+    sellerEmail: product.seller?.email,
+    isAdmin,
+    sellerInfo: product.seller,
+  });
+
   // Usar el valor del hook o el prop como fallback
   const actualIsFavorite = onToggleFavorite
     ? isFavorite

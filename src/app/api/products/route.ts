@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/libs/prisma";
 import { deleteImage } from "@/lib/cloudinary";
+import { isAdminUser } from "@/lib/admin";
 import { Prisma } from "@prisma/client";
 
 // GET - Obtener todos los productos públicos
@@ -216,22 +217,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar límite de productos activos por usuario (máximo 5)
-    const activeProductsCount = await prisma.product.count({
-      where: {
-        sellerId: user.id,
-        sold: false, // Solo productos no vendidos
-      },
-    });
+    // El admin no tiene límite de productos
+    const isAdmin = isAdminUser(session.user.email);
 
-    if (activeProductsCount >= 5) {
-      return NextResponse.json(
-        {
-          message:
-            "Has alcanzado el límite máximo de 5 productos activos. Vende o elimina algunos productos antes de publicar uno nuevo.",
-          limit: true,
+    if (!isAdmin) {
+      const activeProductsCount = await prisma.product.count({
+        where: {
+          sellerId: user.id,
+          sold: false, // Solo productos no vendidos
         },
-        { status: 400 }
-      );
+      });
+
+      if (activeProductsCount >= 5) {
+        return NextResponse.json(
+          {
+            message:
+              "Has alcanzado el límite máximo de 5 productos activos. Vende o elimina algunos productos antes de publicar uno nuevo.",
+            limit: true,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Crear producto
