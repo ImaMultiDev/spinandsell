@@ -13,12 +13,14 @@ export async function generateMetadata({
   const { id } = await params;
 
   try {
-    const response = await fetch(
-      `${process.env.NEXTAUTH_URL}/api/products/${id}`,
-      {
-        cache: "no-store",
-      }
-    );
+    // Construir URL de manera más robusta
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXTAUTH_URL || "http://localhost:3000";
+
+    const response = await fetch(`${baseUrl}/api/products/${id}`, {
+      cache: "no-store",
+    });
 
     if (!response.ok) {
       return {

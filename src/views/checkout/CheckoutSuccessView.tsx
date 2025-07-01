@@ -30,6 +30,14 @@ export default function CheckoutSuccessView() {
   const productId = searchParams.get("product_id");
 
   const fetchProductInfo = useCallback(async () => {
+    // Validar que productId exista y no sea undefined/null
+    if (!productId || productId === "undefined" || productId === "null") {
+      console.error("ProductId inválido:", productId);
+      toast.error("ID de producto inválido");
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/products/${productId}`);
       if (response.ok) {

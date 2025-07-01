@@ -14,9 +14,6 @@ export async function POST(request: NextRequest) {
 
     const { productId } = await request.json();
 
-    console.log("🔍 DEBUG - productId recibido:", productId);
-    console.log("🔍 DEBUG - tipo de productId:", typeof productId);
-
     if (!productId) {
       return NextResponse.json(
         { message: "ID del producto requerido" },
@@ -25,7 +22,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Obtener producto y vendedor
-    console.log("🔍 DEBUG - Buscando producto con ID:", productId);
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
@@ -38,9 +34,6 @@ export async function POST(request: NextRequest) {
         },
       },
     });
-
-    console.log("🔍 DEBUG - Producto encontrado:", product ? "SÍ" : "NO");
-    console.log("🔍 DEBUG - Producto completo:", JSON.stringify(product));
 
     if (!product) {
       return NextResponse.json(
@@ -83,7 +76,9 @@ export async function POST(request: NextRequest) {
     const platformFee = calculatePlatformFee(amountInCents);
 
     // URL base para redirecciones
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXTAUTH_URL || "http://localhost:3000";
 
     try {
       // Crear sesión de checkout de Stripe
@@ -120,7 +115,7 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({
-        checkoutUrl: checkoutSession.url,
+        url: checkoutSession.url,
         sessionId: checkoutSession.id,
       });
     } catch (stripeError) {
