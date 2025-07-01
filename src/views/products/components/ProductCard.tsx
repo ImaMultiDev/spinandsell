@@ -33,7 +33,7 @@ export default function ProductCard({
   const { isFavorite: hookIsFavorite, toggleFavorite } = useFavorites();
 
   // Verificar si es producto del admin
-  const isAdmin = isAdminProduct(product.sellerId);
+  const isAdmin = isAdminProduct(product.seller?.email);
   const adminStyles = getAdminProductStyles();
   const adminBranding = getAdminBranding();
 

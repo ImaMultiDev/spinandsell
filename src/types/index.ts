@@ -32,6 +32,15 @@ export interface Product {
   logisticInvoice?: string | null;
   createdAt: Date;
   updatedAt: Date;
+
+  // Relaciones opcionales
+  seller?: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+    location?: string | null;
+  };
 }
 
 export interface User {
